@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBAM: Convolutional Block Attention Module — Blog</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;0,900;1,300;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafaf7;
+    --ink: #1a1a18;
+    --muted: #6b6b5f;
+    --rule: #e2e0d8;
+    --accent: #2d6a4f;
+    --accent-light: #e8f4ef;
+    --accent2: #c77b3a;
+    --accent2-light: #fdf0e3;
+    --blue: #2c5282;
+    --blue-light: #ebf4ff;
+    --red: #c0392b;
+    --red-light: #fdf0ef;
+    --surface: #f2f0eb;
+    --code-bg: #1e1e2e;
+    --code-text: #cdd6f4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 17px;
+    line-height: 1.85;
+  }
+
+  /* HEADER STRIP */
+  .strip {
+    background: var(--accent);
+    color: white;
+    padding: 9px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+  }
+  .strip a { color: #a8d8c4; text-decoration: none; }
+
+  /* HERO */
+  .hero {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 72px 32px 56px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .pill {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1.5px solid;
+  }
+  .pill-green { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
+  .pill-orange { color: var(--accent2); border-color: var(--accent2); background: var(--accent2-light); }
+  .pill-blue { color: var(--blue); border-color: var(--blue); background: var(--blue-light); }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--ink);
+    margin-bottom: 22px;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 640px;
+    margin-bottom: 32px;
+    font-weight: 300;
+    line-height: 1.65;
+  }
+
+  .meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+  }
+  .meta-bar a { color: var(--blue); text-decoration: none; border-bottom: 1px dashed var(--blue); }
+
+  /* BODY */
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 32px 80px; }
+
+  .section { margin: 60px 0; }
+
+  .sec-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sec-label::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 20px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 30px 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin-bottom: 16px; }
+
+  /* PULL QUOTE */
+  .pull {
+    margin: 44px -8px;
+    padding: 24px 32px;
+    border-top: 3px solid var(--ink);
+    border-bottom: 3px solid var(--ink);
+  }
+  .pull p {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem;
+    font-style: italic;
+    font-weight: 300;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  /* CALLOUTS */
+  .box {
+    padding: 20px 24px;
+    margin: 24px 0;
+    border-radius: 8px;
+  }
+  .box-green { background: var(--accent-light); border-left: 4px solid var(--accent); }
+  .box-orange { background: var(--accent2-light); border-left: 4px solid var(--accent2); }
+  .box-blue { background: var(--blue-light); border-left: 4px solid var(--blue); }
+  .box-red { background: var(--red-light); border-left: 4px solid var(--red); }
+  .box-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .box-green .box-title { color: var(--accent); }
+  .box-orange .box-title { color: var(--accent2); }
+  .box-blue .box-title { color: var(--blue); }
+  .box-red .box-title { color: var(--red); }
+
+  /* DIAGRAM */
+  .diagram {
+    background: var(--surface);
+    border: 1.5px solid var(--rule);
+    border-radius: 10px;
+    padding: 32px 20px;
+    margin: 36px 0;
+    overflow-x: auto;
+  }
+
+  /* TABLE */
+  .tbl-wrap { overflow-x: auto; margin: 32px 0; border: 1.5px solid var(--rule); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--ink); }
+  th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: white;
+    padding: 13px 16px;
+    text-align: left;
+  }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--rule); font-size: 14px; }
+  tr:last-child td { border-bottom: none; }
+  .hl td { background: #e8f4ef; }
+  .win { color: var(--accent); font-weight: 600; }
+  .dim { color: var(--muted); }
+
+  /* CODE */
+  .code {
+    background: var(--code-bg);
+    border-radius: 10px;
+    padding: 26px 28px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .code pre {
+    font-family: 'Space Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--code-text);
+  }
+  .kw { color: #f38ba8; }
+  .fn { color: #89b4fa; }
+  .cm { color: #585b70; font-style: italic; }
+  .st { color: #a6e3a1; }
+  .nb { color: #fab387; }
+
+  figcaption {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+
+  ol, ul { padding-left: 24px; margin-bottom: 16px; }
+  li { margin-bottom: 9px; }
+
+  /* DIVIDER */
+  .div { display: flex; align-items: center; gap: 16px; margin: 64px 0; }
+  .div::before, .div::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+  .div-inner { font-family: 'Fraunces', serif; font-size: 1.4rem; color: var(--rule); }
+
+  /* FOOTER */
+  footer {
+    background: var(--ink);
+    color: #888;
+    padding: 40px 32px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    line-height: 2;
+  }
+  footer a { color: #a8d8c4; text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .hero, .wrap { padding-left: 18px; padding-right: 18px; }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="strip">
+  <span>Research Paper Blog · Computer Vision · ECCV 2018</span>
+  <span><a href="https://github.com/Jongchan/attention-module" target="_blank">Official GitHub ↗</a></span>
+</div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="pill-row">
+    <span class="pill pill-green">ECCV 2018 (A* Conference)</span>
+    <span class="pill pill-orange">Channel Attention</span>
+    <span class="pill pill-orange">Spatial Attention</span>
+    <span class="pill pill-blue">Image Classification</span>
+    <span class="pill pill-blue">Object Detection</span>
+  </div>
+  <h1>CBAM: <em>Convolutional Block<br>Attention Module</em></h1>
+  <p class="hero-sub">A simple, plug-and-play dual-attention module that teaches CNNs both <em>what</em> to focus on (channel attention) and <em>where</em> to look (spatial attention) — with an official PyTorch repo and results that beat SENet.</p>
+  <div class="meta-bar">
+    <span>✍ Woo, Park, Lee, Kweon — KAIST, Lunit Inc.</span>
+    <span>📅 ECCV 2018</span>
+    <a href="https://arxiv.org/abs/1807.06521" target="_blank">arXiv:1807.06521</a>
+    <a href="https://github.com/Jongchan/attention-module" target="_blank">Official PyTorch: github.com/Jongchan/attention-module</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- INTRO -->
+  <div class="section">
+    <p>
+      When a human looks at a photograph to identify a bird, two things happen simultaneously: the brain decides <em>which visual features matter</em> (colour of feathers, beak shape — not the sky background) and <em>where in the image</em> to focus (the bird's body, not the surrounding foliage). Standard CNNs do neither of these things explicitly — every channel and every spatial position is treated with equal weight as features flow between layers.
+    </p>
+    <p>
+      CBAM formalises exactly this dual intuition into a lightweight, general-purpose module that can be dropped into any CNN architecture with negligible overhead.
+    </p>
+    <div class="pull">
+      <p>"Instead of asking 'what features did the convolution extract?', CBAM asks: 'which of those features actually matter, and where in the image do they matter most?'"</p>
+    </div>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 1. PROBLEM -->
+  <div class="section">
+    <div class="sec-label">Section 01</div>
+    <h2>The Problem</h2>
+
+    <p>
+      A convolutional layer at depth <em>l</em> produces a feature map <strong>F ∈ ℝ^{C×H×W}</strong> — C channels, each an H×W spatial map of responses to a particular learned filter. Two fundamental questions arise at every such layer:
+    </p>
+
+    <ol>
+      <li><strong>Channel question (What?):</strong> Among all C feature channels, which ones carry the most relevant information for the current input image? A channel detecting "dog fur" is important when the image contains a dog; it is noise when the image contains a car.</li>
+      <li><strong>Spatial question (Where?):</strong> Within each feature map, which spatial locations are most informative? The discriminative region of the image — the object — is typically small relative to the full H×W grid.</li>
+    </ol>
+
+    <p>
+      Standard convolutions answer neither question — they apply learned but <em>input-independent</em> fixed weights across all channels and all positions uniformly. SENet (CVPR 2018) addressed the channel question via the Squeeze-and-Excitation block, but left the spatial question entirely untouched. CBAM tackles both in a single, unified, sequential module.
+    </p>
+
+    <div class="box box-blue">
+      <div class="box-title">Core Problem Statement</div>
+      CNNs lack input-adaptive mechanisms to prioritise relevant feature channels (the "what") and relevant spatial regions (the "where"). CBAM proposes a sequential channel-then-spatial attention mechanism that recalibrates feature maps along both dimensions, conditioned on the input, with minimal parameter overhead.
+    </div>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 2. RELEVANCE -->
+  <div class="section">
+    <div class="sec-label">Section 02</div>
+    <h2>Why This Matters</h2>
+
+    <p>
+      By 2018, the field had largely converged on residual architectures (ResNet, ResNeXt, DenseNet) as the standard backbone for vision tasks. Marginal gains from simply going deeper or wider were becoming expensive. The emerging consensus was that <em>better feature selection</em> — rather than more computation — was the more efficient path to improvement.
+    </p>
+    <p>
+      CBAM is important not just for the accuracy numbers it achieves, but for what it demonstrates conceptually: that an attention mechanism with <strong>fewer than 1% additional parameters</strong> consistently improves a wide variety of CNN architectures across classification, detection, and segmentation. This architecture-agnostic, compute-cheap improvement profile makes it practically significant for anyone deploying vision models under resource constraints.
+    </p>
+    <p>
+      Furthermore, the spatial attention map produced by CBAM provides a form of <strong>visual interpretability</strong> — you can literally visualise which image regions the network decided to focus on, which is valuable for debugging, trust, and downstream applications like medical imaging.
+    </p>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 3. APPROACH -->
+  <div class="section">
+    <div class="sec-label">Section 03</div>
+    <h2>The Approach: Dual Attention in Two Steps</h2>
+
+    <p>
+      CBAM consists of two sequential sub-modules applied to the feature map output of any convolutional block: first the <strong>Channel Attention Module (CAM)</strong>, then the <strong>Spatial Attention Module (SAM)</strong>. The authors show through ablation that this order (channel first, then spatial) is optimal.
+    </p>
+
+    <!-- MAIN DIAGRAM -->
+    <div class="diagram">
+      <svg viewBox="0 0 820 380" width="820" height="380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#2d6a4f"/>
+          </marker>
+          <marker id="b" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#c77b3a"/>
+          </marker>
+        </defs>
+
+        <!-- LABELS -->
+        <text x="410" y="20" font-family="'Space Mono',monospace" font-size="11" fill="#888" text-anchor="middle" letter-spacing="3">CBAM OVERVIEW</text>
+
+        <!-- Input -->
+        <rect x="10" y="55" width="90" height="50" rx="6" fill="#e2e0d8" stroke="#ccc" stroke-width="1"/>
+        <text x="55" y="78" font-family="'Space Mono',monospace" font-size="9" fill="#1a1a18" text-anchor="middle">Input F</text>
+        <text x="55" y="92" font-family="'Space Mono',monospace" font-size="8" fill="#888" text-anchor="middle">C×H×W</text>
+
+        <line x1="100" y1="80" x2="128" y2="80" stroke="#2d6a4f" stroke-width="2" marker-end="url(#a)"/>
+
+        <!-- Channel Attention Module -->
+        <rect x="130" y="35" width="200" height="90" rx="8" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="2"/>
+        <text x="230" y="56" font-family="'Space Mono',monospace" font-size="10" fill="#2d6a4f" text-anchor="middle" font-weight="700">CHANNEL ATTENTION</text>
+        <text x="230" y="72" font-family="'Space Mono',monospace" font-size="8.5" fill="#1a1a18" text-anchor="middle">AvgPool + MaxPool → FC → Sigmoid</text>
+        <text x="230" y="87" font-family="'Space Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">Mc ∈ ℝ^{C×1×1}</text>
+        <text x="230" y="103" font-family="'Space Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">F' = Mc(F) ⊗ F</text>
+
+        <line x1="330" y1="80" x2="358" y2="80" stroke="#2d6a4f" stroke-width="2" marker-end="url(#a)"/>
+
+        <!-- Spatial Attention Module -->
+        <rect x="360" y="35" width="200" height="90" rx="8" fill="#fdf0e3" stroke="#c77b3a" stroke-width="2"/>
+        <text x="460" y="56" font-family="'Space Mono',monospace" font-size="10" fill="#c77b3a" text-anchor="middle" font-weight="700">SPATIAL ATTENTION</text>
+        <text x="460" y="72" font-family="'Space Mono',monospace" font-size="8.5" fill="#1a1a18" text-anchor="middle">AvgPool + MaxPool (channel) → Conv → Sigmoid</text>
+        <text x="460" y="87" font-family="'Space Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">Ms ∈ ℝ^{1×H×W}</text>
+        <text x="460" y="103" font-family="'Space Mono',monospace" font-size="8.5" fill="#888" text-anchor="middle">F'' = Ms(F') ⊗ F'</text>
+
+        <line x1="560" y1="80" x2="588" y2="80" stroke="#c77b3a" stroke-width="2" marker-end="url(#b)"/>
+
+        <!-- Output -->
+        <rect x="590" y="55" width="90" height="50" rx="6" fill="#e2e0d8" stroke="#ccc" stroke-width="1"/>
+        <text x="635" y="78" font-family="'Space Mono',monospace" font-size="9" fill="#1a1a18" text-anchor="middle">Output F''</text>
+        <text x="635" y="92" font-family="'Space Mono',monospace" font-size="8" fill="#888" text-anchor="middle">C×H×W</text>
+
+        <!-- CHANNEL ATTENTION DETAIL -->
+        <text x="230" y="155" font-family="'Space Mono',monospace" font-size="10" fill="#2d6a4f" text-anchor="middle" letter-spacing="1">— CHANNEL ATTENTION DETAIL —</text>
+
+        <rect x="20" y="168" width="80" height="36" rx="4" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="1"/>
+        <text x="60" y="188" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">F: C×H×W</text>
+
+        <line x1="100" y1="186" x2="118" y2="186" stroke="#2d6a4f" stroke-width="1.5" marker-end="url(#a)"/>
+        <!-- split arrow up/down -->
+        <line x1="109" y1="186" x2="109" y2="166" stroke="#2d6a4f" stroke-width="1" stroke-dasharray="3"/>
+        <line x1="109" y1="166" x2="118" y2="166" stroke="#2d6a4f" stroke-width="1" stroke-dasharray="3" marker-end="url(#a)"/>
+
+        <rect x="120" y="158" width="70" height="22" rx="3" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="1"/>
+        <text x="155" y="173" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">AvgPool</text>
+
+        <rect x="120" y="183" width="70" height="22" rx="3" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="1"/>
+        <text x="155" y="198" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">MaxPool</text>
+
+        <line x1="190" y1="169" x2="208" y2="169" stroke="#2d6a4f" stroke-width="1.5" marker-end="url(#a)"/>
+        <line x1="190" y1="194" x2="208" y2="194" stroke="#2d6a4f" stroke-width="1.5" marker-end="url(#a)"/>
+
+        <rect x="210" y="158" width="80" height="55" rx="3" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="1"/>
+        <text x="250" y="179" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">Shared MLP</text>
+        <text x="250" y="192" font-family="'Space Mono',monospace" font-size="7" fill="#888" text-anchor="middle">FC(C→C/r→C)</text>
+        <text x="250" y="204" font-family="'Space Mono',monospace" font-size="7" fill="#888" text-anchor="middle">shared weights</text>
+
+        <line x1="290" y1="185" x2="308" y2="185" stroke="#2d6a4f" stroke-width="1.5" marker-end="url(#a)"/>
+
+        <rect x="310" y="168" width="60" height="36" rx="3" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="1"/>
+        <text x="340" y="188" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">⊕ + Sigmoid</text>
+
+        <line x1="370" y1="186" x2="388" y2="186" stroke="#2d6a4f" stroke-width="1.5" marker-end="url(#a)"/>
+
+        <rect x="390" y="168" width="60" height="36" rx="3" fill="#e8f4ef" stroke="#2d6a4f" stroke-width="1"/>
+        <text x="420" y="183" font-family="'Space Mono',monospace" font-size="8" fill="#2d6a4f" text-anchor="middle" font-weight="700">Mc(F)</text>
+        <text x="420" y="196" font-family="'Space Mono',monospace" font-size="8" fill="#888" text-anchor="middle">C×1×1</text>
+
+        <text x="470" y="188" font-family="'Space Mono',monospace" font-size="13" fill="#888">×</text>
+        <text x="488" y="192" font-family="'Space Mono',monospace" font-size="8" fill="#888">F</text>
+        <text x="505" y="188" font-family="'Space Mono',monospace" font-size="11" fill="#2d6a4f" font-weight="700">→ F'</text>
+
+        <!-- SPATIAL ATTENTION DETAIL -->
+        <text x="410" y="240" font-family="'Space Mono',monospace" font-size="10" fill="#c77b3a" text-anchor="middle" letter-spacing="1">— SPATIAL ATTENTION DETAIL —</text>
+
+        <rect x="20" y="252" width="80" height="36" rx="4" fill="#fdf0e3" stroke="#c77b3a" stroke-width="1"/>
+        <text x="60" y="272" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">F': C×H×W</text>
+
+        <line x1="100" y1="270" x2="118" y2="270" stroke="#c77b3a" stroke-width="1.5" marker-end="url(#b)"/>
+        <line x1="109" y1="270" x2="109" y2="252" stroke="#c77b3a" stroke-width="1" stroke-dasharray="3"/>
+        <line x1="109" y1="252" x2="118" y2="252" stroke="#c77b3a" stroke-width="1" stroke-dasharray="3" marker-end="url(#b)"/>
+
+        <rect x="120" y="244" width="80" height="20" rx="3" fill="#fdf0e3" stroke="#c77b3a" stroke-width="1"/>
+        <text x="160" y="258" font-family="'Space Mono',monospace" font-size="7.5" fill="#1a1a18" text-anchor="middle">Avg across C → 1×H×W</text>
+
+        <rect x="120" y="267" width="80" height="20" rx="3" fill="#fdf0e3" stroke="#c77b3a" stroke-width="1"/>
+        <text x="160" y="281" font-family="'Space Mono',monospace" font-size="7.5" fill="#1a1a18" text-anchor="middle">Max across C → 1×H×W</text>
+
+        <line x1="200" y1="254" x2="218" y2="265" stroke="#c77b3a" stroke-width="1.5"/>
+        <line x1="200" y1="277" x2="218" y2="266" stroke="#c77b3a" stroke-width="1.5" marker-end="url(#b)"/>
+
+        <rect x="220" y="253" width="90" height="30" rx="3" fill="#fdf0e3" stroke="#c77b3a" stroke-width="1"/>
+        <text x="265" y="267" font-family="'Space Mono',monospace" font-size="7.5" fill="#1a1a18" text-anchor="middle">Concat → 2×H×W</text>
+        <text x="265" y="278" font-family="'Space Mono',monospace" font-size="7.5" fill="#888" text-anchor="middle">Conv(7×7) → Sigmoid</text>
+
+        <line x1="310" y1="268" x2="328" y2="268" stroke="#c77b3a" stroke-width="1.5" marker-end="url(#b)"/>
+
+        <rect x="330" y="253" width="65" height="30" rx="3" fill="#fdf0e3" stroke="#c77b3a" stroke-width="1"/>
+        <text x="362" y="268" font-family="'Space Mono',monospace" font-size="8" fill="#c77b3a" text-anchor="middle" font-weight="700">Ms(F')</text>
+        <text x="362" y="279" font-family="'Space Mono',monospace" font-size="7.5" fill="#888" text-anchor="middle">1×H×W</text>
+
+        <text x="408" y="271" font-family="'Space Mono',monospace" font-size="13" fill="#888">×</text>
+        <text x="426" y="275" font-family="'Space Mono',monospace" font-size="8" fill="#888">F'</text>
+        <text x="444" y="271" font-family="'Space Mono',monospace" font-size="11" fill="#c77b3a" font-weight="700">→ F''</text>
+
+        <!-- KEY DIFFERENCE FROM SENET -->
+        <rect x="540" y="243" width="270" height="68" rx="6" fill="#f2f0eb" stroke="#e2e0d8" stroke-width="1.5"/>
+        <text x="675" y="260" font-family="'Space Mono',monospace" font-size="9" fill="#888" text-anchor="middle">KEY DIFFERENCE vs SENet</text>
+        <text x="675" y="276" font-family="'Space Mono',monospace" font-size="8" fill="#1a1a18" text-anchor="middle">SENet: Channel attention only</text>
+        <text x="675" y="290" font-family="'Space Mono',monospace" font-size="8" fill="#2d6a4f" text-anchor="middle">CBAM: Channel + Spatial attention</text>
+        <text x="675" y="304" font-family="'Space Mono',monospace" font-size="8" fill="#c77b3a" text-anchor="middle">Uses both Avg AND Max pooling</text>
+
+        <!-- Formula summary -->
+        <text x="410" y="344" font-family="'Space Mono',monospace" font-size="10" fill="#888" text-anchor="middle">F'' = Ms( Mc(F) ⊗ F ) ⊗ ( Mc(F) ⊗ F )</text>
+        <text x="410" y="362" font-family="'Space Mono',monospace" font-size="9" fill="#aaa" text-anchor="middle">⊗ = element-wise multiplication</text>
+      </svg>
+    </div>
+    <figcaption>Figure 1: Full CBAM pipeline (top), channel attention detail (middle), and spatial attention detail (bottom). Note the key differences from SENet: CBAM adds spatial attention, and both sub-modules use both average AND max pooling.</figcaption>
+
+    <h3>Channel Attention Module (CAM) — "What to focus on"</h3>
+    <p>
+      Given input feature map <code>F ∈ ℝ^{C×H×W}</code>, the CAM produces a channel attention map <code>Mc ∈ ℝ^{C×1×1}</code>. Both <strong>average pooling</strong> and <strong>max pooling</strong> are applied across the spatial H×W dimensions independently, giving two C-dimensional descriptors. Both are passed through a <strong>shared</strong> two-layer MLP (C → C/r → C) and their outputs are summed before a Sigmoid. Using both pooling types captures both the average presence of a feature and its most prominent occurrence — richer than SENet's average-only approach.
+    </p>
+
+    <h3>Spatial Attention Module (SAM) — "Where to focus"</h3>
+    <p>
+      The channel-refined feature map <code>F' = Mc ⊗ F</code> is then fed into the SAM. Here, pooling is applied across the <strong>channel dimension</strong> — average and max across all C channels at each spatial position, producing two 1×H×W maps that are concatenated into a 2×H×W descriptor. A single 7×7 convolution (large receptive field to capture wide spatial context) followed by Sigmoid produces the spatial attention map <code>Ms ∈ ℝ^{1×H×W}</code>.
+    </p>
+
+    <h3>PyTorch Implementation (~40 lines total)</h3>
+
+    <div class="code">
+      <pre><span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+
+<span class="kw">class</span> <span class="fn">ChannelAttention</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, channels, reduction=<span class="nb">16</span>):
+        <span class="fn">super</span>().__init__()
+        self.avg_pool = nn.<span class="fn">AdaptiveAvgPool2d</span>(<span class="nb">1</span>)
+        self.max_pool = nn.<span class="fn">AdaptiveMaxPool2d</span>(<span class="nb">1</span>)
+        <span class="cm"># Shared MLP — same weights applied to both pooling outputs</span>
+        self.mlp = nn.<span class="fn">Sequential</span>(
+            nn.<span class="fn">Flatten</span>(),
+            nn.<span class="fn">Linear</span>(channels, channels // reduction, bias=<span class="kw">False</span>),
+            nn.<span class="fn">ReLU</span>(),
+            nn.<span class="fn">Linear</span>(channels // reduction, channels, bias=<span class="kw">False</span>)
+        )
+        self.sigmoid = nn.<span class="fn">Sigmoid</span>()
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        avg_out = self.<span class="fn">mlp</span>(self.<span class="fn">avg_pool</span>(x))
+        max_out = self.<span class="fn">mlp</span>(self.<span class="fn">max_pool</span>(x))
+        <span class="cm"># Sum → Sigmoid → reshape to (B, C, 1, 1)</span>
+        mc = self.<span class="fn">sigmoid</span>(avg_out + max_out).unsqueeze(<span class="nb">-1</span>).unsqueeze(<span class="nb">-1</span>)
+        <span class="kw">return</span> x * mc
+
+
+<span class="kw">class</span> <span class="fn">SpatialAttention</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, kernel_size=<span class="nb">7</span>):
+        <span class="fn">super</span>().__init__()
+        <span class="cm"># Input: 2 channels (avg + max across channel dim)</span>
+        self.conv = nn.<span class="fn">Conv2d</span>(<span class="nb">2</span>, <span class="nb">1</span>, kernel_size, padding=kernel_size//<span class="nb">2</span>, bias=<span class="kw">False</span>)
+        self.sigmoid = nn.<span class="fn">Sigmoid</span>()
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        <span class="cm"># Pool across channels: (B,C,H,W) → (B,1,H,W) each</span>
+        avg_out = torch.<span class="fn">mean</span>(x, dim=<span class="nb">1</span>, keepdim=<span class="kw">True</span>)
+        max_out, _ = torch.<span class="fn">max</span>(x, dim=<span class="nb">1</span>, keepdim=<span class="kw">True</span>)
+        ms = self.<span class="fn">sigmoid</span>(self.<span class="fn">conv</span>(torch.<span class="fn">cat</span>([avg_out, max_out], dim=<span class="nb">1</span>)))
+        <span class="kw">return</span> x * ms
+
+
+<span class="kw">class</span> <span class="fn">CBAM</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, channels, reduction=<span class="nb">16</span>, kernel_size=<span class="nb">7</span>):
+        <span class="fn">super</span>().__init__()
+        self.ca = <span class="fn">ChannelAttention</span>(channels, reduction)
+        self.sa = <span class="fn">SpatialAttention</span>(kernel_size)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        x = self.<span class="fn">ca</span>(x)   <span class="cm"># Step 1: channel attention</span>
+        x = self.<span class="fn">sa</span>(x)   <span class="cm"># Step 2: spatial attention</span>
+        <span class="kw">return</span> x</pre>
+    </div>
+
+    <div class="box box-green">
+      <div class="box-title">Implementation Tip for Assignment 3</div>
+      Drop the <code>CBAM</code> module into a ResNet-18 BasicBlock just like SENet. The only difference: you have <em>two</em> sub-modules (channel + spatial). Test on CIFAR-10, compare: <strong>ResNet-18 vs SE-ResNet-18 vs CBAM-ResNet-18</strong>. You'll see a clear accuracy ladder — great for your report.
+    </div>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 4. RESULTS -->
+  <div class="section">
+    <div class="sec-label">Section 04</div>
+    <h2>Results vs. Baselines</h2>
+
+    <p>Primary benchmark: <strong>ImageNet-1K</strong> classification with ResNet backbones. The paper also evaluates on MS-COCO object detection (Faster R-CNN) and VOC 2007 detection.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Top-1 Error (%)</th>
+            <th>Top-5 Error (%)</th>
+            <th>Params (M)</th>
+            <th>GFLOPs</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="dim">ResNet-50</td>
+            <td class="dim">24.77</td>
+            <td class="dim">7.48</td>
+            <td>25.6</td>
+            <td>3.86</td>
+          </tr>
+          <tr>
+            <td class="dim">SE-ResNet-50 (SENet)</td>
+            <td class="dim">23.29</td>
+            <td class="dim">6.62</td>
+            <td>28.1</td>
+            <td>3.87</td>
+          </tr>
+          <tr class="hl">
+            <td><strong>CBAM-ResNet-50</strong> ★</td>
+            <td><span class="win">22.66 (↓2.11 vs base)</span></td>
+            <td><span class="win">6.31</span></td>
+            <td>28.1</td>
+            <td>3.87</td>
+          </tr>
+          <tr>
+            <td class="dim">ResNet-101</td>
+            <td class="dim">23.38</td>
+            <td class="dim">6.52</td>
+            <td>44.5</td>
+            <td>7.58</td>
+          </tr>
+          <tr>
+            <td class="dim">SE-ResNet-101</td>
+            <td class="dim">22.37</td>
+            <td class="dim">6.07</td>
+            <td>49.3</td>
+            <td>7.60</td>
+          </tr>
+          <tr class="hl">
+            <td><strong>CBAM-ResNet-101</strong> ★</td>
+            <td><span class="win">21.51 (↓1.86 vs base)</span></td>
+            <td><span class="win">5.69</span></td>
+            <td>49.3</td>
+            <td>7.60</td>
+          </tr>
+          <tr>
+            <td class="dim">WideResNet-28-10</td>
+            <td class="dim">18.89</td>
+            <td class="dim">—</td>
+            <td>36.5</td>
+            <td>—</td>
+          </tr>
+          <tr class="hl">
+            <td><strong>CBAM-WideResNet-28-10</strong> ★</td>
+            <td><span class="win">17.93 (↓0.96)</span></td>
+            <td><span class="win">—</span></td>
+            <td>36.5</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>Table 1: ImageNet-1K classification results. ★ = CBAM variant. CBAM consistently outperforms both the baseline and SENet with the same parameter budget. Source: original paper Table 4.</figcaption>
+
+    <p style="margin-top: 24px;">
+      CBAM-ResNet-50 achieves <strong>22.66% top-1 error</strong>, beating SE-ResNet-50 (23.29%) by 0.63% and the baseline ResNet-50 (24.77%) by 2.11% — at literally the same parameter count and GFLOPs as SE-ResNet-50. The spatial attention component is what provides the extra gain over SENet.
+    </p>
+
+    <h3>Object Detection (MS-COCO)</h3>
+    <p>
+      Using CBAM-ResNet as the backbone in Faster R-CNN, the paper reports consistent mAP improvements of 0.3–0.9% over SE-ResNet backbones across COCO detection benchmarks, confirming that the spatial attention maps learned by CBAM transfer well to localisation-heavy tasks.
+    </p>
+
+    <div class="box box-blue">
+      <div class="box-title">Key Result Summary</div>
+      CBAM beats SENet on every architecture tested, at the same parameter count, without any additional FLOPs compared to SE. The spatial attention module provides a consistent 0.5–0.7% top-1 error reduction on top of channel attention alone.
+    </div>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 5. CRITICAL ANALYSIS -->
+  <div class="section">
+    <div class="sec-label">Section 05</div>
+    <h2>Critical Analysis</h2>
+
+    <h3>✅ Strengths</h3>
+    <p>
+      <strong>Complementary attention axes.</strong> The key insight — that channel and spatial attention are complementary and should be applied sequentially — is well-supported by ablation studies in the paper. Applying both consistently outperforms applying either alone, and channel-first ordering outperforms spatial-first.
+    </p>
+    <p>
+      <strong>Richer pooling in channel attention.</strong> Using both average and max pooling (with shared MLP weights) in the CAM is a genuine improvement over SENet's average-only approach. Max pooling captures the most salient activation of a channel; average pooling captures its diffuse presence. Together they provide a more complete channel descriptor.
+    </p>
+    <p>
+      <strong>Visual interpretability.</strong> The spatial attention map Ms is a 1×H×W heatmap that directly shows which image regions the network focused on. This is practically useful for model debugging and is appealing for safety-critical applications.
+    </p>
+
+    <h3>⚠️ Limitations</h3>
+    <p>
+      <strong>The 7×7 convolution in spatial attention is still local.</strong> Despite the large kernel, the spatial attention mechanism captures only a 7×7 neighbourhood. For global spatial relationships (e.g., the relationship between a person's face and their hands across a large image), this is insufficient. Non-local means or self-attention would be required for truly global spatial reasoning.
+    </p>
+    <p>
+      <strong>Sequential application may be suboptimal.</strong> Channel and spatial attention are applied sequentially. But channel importance and spatial importance are inherently coupled — a channel may be relevant only in a specific spatial region. A joint, simultaneous attention over both dimensions might capture these interactions better. Later works like BAM explore parallel attention.
+    </p>
+    <p>
+      <strong>Fixed kernel size for spatial attention.</strong> The 7×7 kernel is fixed by hyperparameter. For different image resolutions or object scales, the optimal kernel size varies. There is no adaptive mechanism to select the spatial context window size.
+    </p>
+    <p>
+      <strong>Limited evaluation on modern architectures.</strong> The paper was published in 2018 and evaluates primarily on ResNet variants. Its effectiveness on modern architectures like EfficientNet or transformer-based models is not addressed.
+    </p>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 6. IMPROVEMENTS -->
+  <div class="section">
+    <div class="sec-label">Section 06</div>
+    <h2>Improvement Suggestions</h2>
+
+    <div class="box box-orange">
+      <div class="box-title">Suggestion 1 — Joint Channel-Spatial Attention</div>
+      Instead of sequential application, compute channel and spatial attention <strong>in parallel</strong> and combine their outputs. This allows the module to capture interactions where a channel's importance is spatially localised. BAM (Bottleneck Attention Module, BMVC 2018) explored this direction with promising results.
+    </div>
+
+    <div class="box box-orange">
+      <div class="box-title">Suggestion 2 — Adaptive Kernel Size in Spatial Branch</div>
+      Replace the fixed 7×7 conv with an <strong>adaptive or multi-scale spatial kernel</strong> — e.g., applying dilated convolutions at multiple dilation rates and fusing the outputs. This would allow the spatial attention to capture both local and wider spatial context without increasing parameters significantly.
+    </div>
+
+    <div class="box box-orange">
+      <div class="box-title">Suggestion 3 — Non-Local Spatial Attention</div>
+      Replace the convolutional spatial attention with a <strong>non-local means block</strong> or <strong>self-attention over spatial positions</strong>. This would enable the spatial attention map to capture long-range spatial dependencies — e.g., recognising that two distant image regions belong to the same object.
+    </div>
+
+    <div class="box box-orange">
+      <div class="box-title">Suggestion 4 — ECA-Style Channel Attention</div>
+      Replace the shared MLP in channel attention with <strong>a 1D convolution over sorted channel descriptors</strong> (inspired by ECA-Net, CVPR 2020). This reduces parameters further while capturing local channel interactions and consistently matches or beats CBAM's channel attention.
+    </div>
+
+    <div class="box box-orange">
+      <div class="box-title">Suggestion 5 — Task-Conditioned Attention</div>
+      For multi-task learning, make the excitation weights <strong>conditioned on the downstream task</strong> (classification vs. detection vs. segmentation). The same backbone could then adaptively weight channels and spatial regions differently depending on what it needs to do — without task-specific heads.
+    </div>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 7. GITHUB -->
+  <div class="section">
+    <div class="sec-label">Section 07</div>
+    <h2>GitHub Repository</h2>
+
+    <p>CBAM has an <strong>official PyTorch implementation by the original authors</strong> — one of the cleanest and most complete official repos for any attention paper:</p>
+
+    <div class="box box-green">
+      <div class="box-title">Official Repository</div>
+      <strong>https://github.com/Jongchan/attention-module</strong><br><br>
+      Includes: CBAM + BAM implementations in clean PyTorch · ResNet integration · ImageNet training script · Pre-trained model weights · CIFAR training scripts
+    </div>
+
+    <div class="code">
+      <pre><span class="cm"># Clone and run — official repo</span>
+git clone https://github.com/Jongchan/attention-module.git
+cd attention-module
+
+<span class="cm"># For CIFAR-10 experiments (lightweight, no heavy GPU needed)</span>
+<span class="cm"># Uses ResNet-20/32/44 variants with CBAM</span>
+python train_cifar.py --att-type CBAM --net-type resnet
+
+<span class="cm"># For ImageNet (needs more resources)</span>
+python train_imagenet.py --att-type CBAM --arch resnet --depth 50</pre>
+    </div>
+
+    <h3>Recommended Assignment 3 Setup</h3>
+    <ol>
+      <li>Implement <code>ChannelAttention</code>, <code>SpatialAttention</code>, and <code>CBAM</code> classes yourself (~40 lines)</li>
+      <li>Integrate into ResNet-18 BasicBlock (add <code>self.cbam = CBAM(out_channels)</code>, call in <code>forward()</code>)</li>
+      <li>Train 3 models on <strong>CIFAR-10</strong>: plain ResNet-18, SE-ResNet-18, CBAM-ResNet-18</li>
+      <li>Compare accuracy, training curves, and parameter counts</li>
+      <li>Visualise the spatial attention maps on a few test images — striking and easy to implement</li>
+    </ol>
+
+    <div class="box box-blue">
+      <div class="box-title">Resource Requirement</div>
+      CBAM-ResNet18 on CIFAR-10: ~11.3M parameters. Trains in <strong>~25 minutes on Google Colab free tier (T4)</strong>. No paid GPU or local GPU needed whatsoever. CIFAR-10 dataset downloads automatically via torchvision.
+    </div>
+  </div>
+
+  <div class="div"><div class="div-inner">§</div></div>
+
+  <!-- 8. CONCLUSION -->
+  <div class="section">
+    <div class="sec-label">Section 08</div>
+    <h2>Conclusion</h2>
+    <p>
+      CBAM is a natural and well-motivated extension of SENet that addresses its core limitation — the absence of spatial attention. By sequentially applying channel recalibration (what to focus on) and spatial recalibration (where to focus), CBAM squeezes more representational power out of any CNN backbone at negligible parameter overhead.
+    </p>
+    <p>
+      Its consistent improvements across classification, detection, and segmentation benchmarks — together with the visual interpretability of its spatial attention maps and an excellent official PyTorch repo — make it one of the most practically useful and conceptually clean attention papers of the 2015–2020 era.
+    </p>
+    <p>
+      For this assignment, CBAM is ideal: the implementation is ~40 lines of PyTorch, the concept is crystal-clear, the results are reproducible on a free Colab GPU in under 30 minutes, and the comparison against both ResNet-18 and SE-ResNet-18 provides a natural narrative for the report.
+    </p>
+  </div>
+
+  <!-- REFERENCES -->
+  <div class="section">
+    <div class="sec-label">References</div>
+    <h2>References</h2>
+    <ol style="font-size: 14px; color: var(--muted); line-height: 2.2;">
+      <li>Woo, S., Park, J., Lee, J.-Y., &amp; Kweon, I. S. <em>CBAM: Convolutional Block Attention Module.</em> ECCV 2018. <a href="https://arxiv.org/abs/1807.06521">arXiv:1807.06521</a></li>
+      <li>Hu, J., Shen, L., &amp; Sun, G. <em>Squeeze-and-Excitation Networks.</em> CVPR 2018 / IEEE TPAMI 2019.</li>
+      <li>Park, J. et al. <em>BAM: Bottleneck Attention Module.</em> BMVC 2018.</li>
+      <li>He, K. et al. <em>Deep Residual Learning for Image Recognition.</em> CVPR 2016.</li>
+      <li>Wang, Q. et al. <em>ECA-Net: Efficient Channel Attention for Deep CNN.</em> CVPR 2020.</li>
+    </ol>
+  </div>
+
+</main>
+
+<footer>
+  <div>CBAM: Convolutional Block Attention Module &nbsp;·&nbsp; ECCV 2018</div>
+  <div>
+    Paper: <a href="https://arxiv.org/abs/1807.06521">arXiv:1807.06521</a>
+    &nbsp;·&nbsp;
+    Official Code: <a href="https://github.com/Jongchan/attention-module">github.com/Jongchan/attention-module</a>
+  </div>
+  <div style="opacity:0.4; margin-top: 8px;">CS Course Assignment · March 2026</div>
+</footer>
+
+</body>
+</html>
