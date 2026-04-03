@@ -502,69 +502,6 @@
       The channel-refined feature map <code>F' = Mc ⊗ F</code> is then fed into the SAM. Here, pooling is applied across the <strong>channel dimension</strong> — average and max across all C channels at each spatial position, producing two 1×H×W maps that are concatenated into a 2×H×W descriptor. A single 7×7 convolution (large receptive field to capture wide spatial context) followed by Sigmoid produces the spatial attention map <code>Ms ∈ ℝ^{1×H×W}</code>.
     </p>
 
-    <h3>PyTorch Implementation (~40 lines total)</h3>
-
-    <div class="code">
-      <pre><span class="kw">import</span> torch
-<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
-
-<span class="kw">class</span> <span class="fn">ChannelAttention</span>(nn.Module):
-    <span class="kw">def</span> <span class="fn">__init__</span>(self, channels, reduction=<span class="nb">16</span>):
-        <span class="fn">super</span>().__init__()
-        self.avg_pool = nn.<span class="fn">AdaptiveAvgPool2d</span>(<span class="nb">1</span>)
-        self.max_pool = nn.<span class="fn">AdaptiveMaxPool2d</span>(<span class="nb">1</span>)
-        <span class="cm"># Shared MLP — same weights applied to both pooling outputs</span>
-        self.mlp = nn.<span class="fn">Sequential</span>(
-            nn.<span class="fn">Flatten</span>(),
-            nn.<span class="fn">Linear</span>(channels, channels // reduction, bias=<span class="kw">False</span>),
-            nn.<span class="fn">ReLU</span>(),
-            nn.<span class="fn">Linear</span>(channels // reduction, channels, bias=<span class="kw">False</span>)
-        )
-        self.sigmoid = nn.<span class="fn">Sigmoid</span>()
-
-    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
-        avg_out = self.<span class="fn">mlp</span>(self.<span class="fn">avg_pool</span>(x))
-        max_out = self.<span class="fn">mlp</span>(self.<span class="fn">max_pool</span>(x))
-        <span class="cm"># Sum → Sigmoid → reshape to (B, C, 1, 1)</span>
-        mc = self.<span class="fn">sigmoid</span>(avg_out + max_out).unsqueeze(<span class="nb">-1</span>).unsqueeze(<span class="nb">-1</span>)
-        <span class="kw">return</span> x * mc
-
-
-<span class="kw">class</span> <span class="fn">SpatialAttention</span>(nn.Module):
-    <span class="kw">def</span> <span class="fn">__init__</span>(self, kernel_size=<span class="nb">7</span>):
-        <span class="fn">super</span>().__init__()
-        <span class="cm"># Input: 2 channels (avg + max across channel dim)</span>
-        self.conv = nn.<span class="fn">Conv2d</span>(<span class="nb">2</span>, <span class="nb">1</span>, kernel_size, padding=kernel_size//<span class="nb">2</span>, bias=<span class="kw">False</span>)
-        self.sigmoid = nn.<span class="fn">Sigmoid</span>()
-
-    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
-        <span class="cm"># Pool across channels: (B,C,H,W) → (B,1,H,W) each</span>
-        avg_out = torch.<span class="fn">mean</span>(x, dim=<span class="nb">1</span>, keepdim=<span class="kw">True</span>)
-        max_out, _ = torch.<span class="fn">max</span>(x, dim=<span class="nb">1</span>, keepdim=<span class="kw">True</span>)
-        ms = self.<span class="fn">sigmoid</span>(self.<span class="fn">conv</span>(torch.<span class="fn">cat</span>([avg_out, max_out], dim=<span class="nb">1</span>)))
-        <span class="kw">return</span> x * ms
-
-
-<span class="kw">class</span> <span class="fn">CBAM</span>(nn.Module):
-    <span class="kw">def</span> <span class="fn">__init__</span>(self, channels, reduction=<span class="nb">16</span>, kernel_size=<span class="nb">7</span>):
-        <span class="fn">super</span>().__init__()
-        self.ca = <span class="fn">ChannelAttention</span>(channels, reduction)
-        self.sa = <span class="fn">SpatialAttention</span>(kernel_size)
-
-    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
-        x = self.<span class="fn">ca</span>(x)   <span class="cm"># Step 1: channel attention</span>
-        x = self.<span class="fn">sa</span>(x)   <span class="cm"># Step 2: spatial attention</span>
-        <span class="kw">return</span> x</pre>
-    </div>
-
-    <div class="box box-green">
-      <div class="box-title">Implementation Tip for Assignment 3</div>
-      Drop the <code>CBAM</code> module into a ResNet-18 BasicBlock just like SENet. The only difference: you have <em>two</em> sub-modules (channel + spatial). Test on CIFAR-10, compare: <strong>ResNet-18 vs SE-ResNet-18 vs CBAM-ResNet-18</strong>. You'll see a clear accuracy ladder — great for your report.
-    </div>
-  </div>
-
-  <div class="div"><div class="div-inner">§</div></div>
-
   <!-- 4. RESULTS -->
   <div class="section">
     <div class="sec-label">Section 04</div>
@@ -752,22 +689,6 @@ python train_cifar.py --att-type CBAM --net-type resnet
 
 <span class="cm"># For ImageNet (needs more resources)</span>
 python train_imagenet.py --att-type CBAM --arch resnet --depth 50</pre>
-    </div>
-
-    <h3>Recommended Assignment 3 Setup</h3>
-    <ol>
-      <li>Implement <code>ChannelAttention</code>, <code>SpatialAttention</code>, and <code>CBAM</code> classes yourself (~40 lines)</li>
-      <li>Integrate into ResNet-18 BasicBlock (add <code>self.cbam = CBAM(out_channels)</code>, call in <code>forward()</code>)</li>
-      <li>Train 3 models on <strong>CIFAR-10</strong>: plain ResNet-18, SE-ResNet-18, CBAM-ResNet-18</li>
-      <li>Compare accuracy, training curves, and parameter counts</li>
-      <li>Visualise the spatial attention maps on a few test images — striking and easy to implement</li>
-    </ol>
-
-    <div class="box box-blue">
-      <div class="box-title">Resource Requirement</div>
-      CBAM-ResNet18 on CIFAR-10: ~11.3M parameters. Trains in <strong>~25 minutes on Google Colab free tier (T4)</strong>. No paid GPU or local GPU needed whatsoever. CIFAR-10 dataset downloads automatically via torchvision.
-    </div>
-  </div>
 
   <div class="div"><div class="div-inner">§</div></div>
 
